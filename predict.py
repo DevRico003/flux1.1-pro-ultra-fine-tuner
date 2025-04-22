@@ -154,7 +154,7 @@ class Predictor(BasePredictor):
         pro_ultra_img2img_pipe.__class__.load_lora_into_transformer = classmethod(
             load_lora_into_transformer
         )
-        
+
         print("Loading Flux dev img2img pipeline (for backwards compatibility)")
         dev_img2img_pipe = FluxImg2ImgPipeline(
             transformer=dev_pipe.transformer,
@@ -200,7 +200,7 @@ class Predictor(BasePredictor):
         pro_ultra_inpaint_pipe.__class__.load_lora_into_transformer = classmethod(
             load_lora_into_transformer
         )
-        
+
         print("Loading Flux dev inpaint pipeline (for backwards compatibility)")
         dev_inpaint_pipe = FluxInpaintPipeline(
             transformer=dev_pipe.transformer,
@@ -407,7 +407,7 @@ class Predictor(BasePredictor):
             pipe = self.pipes[model]
             flux_kwargs["width"] = width
             flux_kwargs["height"] = height
-            
+
         if model == "pro_ultra" and raw:
             flux_kwargs["raw"] = True
             print("[!] Using raw mode for Pro Ultra model")

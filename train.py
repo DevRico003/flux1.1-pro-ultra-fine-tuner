@@ -534,7 +534,7 @@ def download_weights():
         )
         t2 = time.time()
         print(f"Downloaded FLUX 1.1 Pro Ultra base weights in {t2 - t1} seconds")
-        
+
     # Also download the dev weights for backwards compatibility if needed
     if not FLUX_DEV_PATH.exists():
         t1 = time.time()
