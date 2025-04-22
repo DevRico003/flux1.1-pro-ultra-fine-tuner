@@ -1,8 +1,15 @@
 # flux-fine-tuner
 
-This is a [Cog](https://cog.run) training model that creates LoRA-based fine-tunes for the [FLUX.1](https://replicate.com/blog/flux-state-of-the-art-image-generation) family of image generation models.
+This is a [Cog](https://cog.run) training model that creates LoRA-based fine-tunes for the [FLUX](https://replicate.com/blog/flux-state-of-the-art-image-generation) family of image generation models.
 
 It's live at [replicate.com/ostris/flux-dev-lora-trainer](https://replicate.com/ostris/flux-dev-lora-trainer).
+
+## Supported FLUX Models
+
+This trainer now supports:
+- **FLUX 1.1 Pro Ultra** (default) - Advanced model with high-resolution output up to 4 megapixels
+- **FLUX.1 Dev** - Original development model
+- **FLUX.1 Schnell** - Faster, more efficient variant
 
 It also includes code for running inference with a fine-tuned model.
 

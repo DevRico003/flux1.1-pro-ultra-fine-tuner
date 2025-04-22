@@ -29,10 +29,14 @@ from lora_loading_patch import load_lora_into_transformer
 MODEL_URL_DEV = (
     "https://weights.replicate.delivery/default/black-forest-labs/FLUX.1-dev/files.tar"
 )
+MODEL_URL_PRO_ULTRA = (
+    "https://weights.replicate.delivery/default/black-forest-labs/flux-1.1-pro-ultra/files.tar"
+)
 MODEL_URL_SCHNELL = "https://weights.replicate.delivery/default/black-forest-labs/FLUX.1-schnell/slim.tar"
 SAFETY_URL = "https://weights.replicate.delivery/default/sdxl/safety-1.0.tar"
 SAFETY_CACHE_PATH = Path("safety-cache")
 FLUX_DEV_PATH = Path("FLUX.1-dev")
+FLUX_PRO_ULTRA_PATH = Path("flux-1.1-pro-ultra")
 FLUX_SCHNELL_PATH = Path("FLUX.1-schnell")
 FEATURE_EXTRACTOR = Path("/src/feature-extractor")
 
@@ -95,7 +99,18 @@ class Predictor(BasePredictor):
         )
         self.falcon_processor = ViTImageProcessor.from_pretrained(FALCON_MODEL_NAME)
 
-        print("Loading Flux dev pipeline")
+        print("Loading Flux Pro Ultra pipeline")
+        if not FLUX_PRO_ULTRA_PATH.exists():
+            download_base_weights(MODEL_URL_PRO_ULTRA, Path("."))
+        pro_ultra_pipe = FluxPipeline.from_pretrained(
+            "flux-1.1-pro-ultra",
+            torch_dtype=torch.bfloat16,
+        ).to("cuda")
+        pro_ultra_pipe.__class__.load_lora_into_transformer = classmethod(
+            load_lora_into_transformer
+        )
+
+        print("Loading Flux dev pipeline (for backwards compatibility)")
         if not FLUX_DEV_PATH.exists():
             download_base_weights(MODEL_URL_DEV, Path("."))
         dev_pipe = FluxPipeline.from_pretrained(
@@ -111,21 +126,36 @@ class Predictor(BasePredictor):
             download_base_weights(MODEL_URL_SCHNELL, FLUX_SCHNELL_PATH)
         schnell_pipe = FluxPipeline.from_pretrained(
             "FLUX.1-schnell",
-            vae=dev_pipe.vae,
-            text_encoder=dev_pipe.text_encoder,
-            text_encoder_2=dev_pipe.text_encoder_2,
-            tokenizer=dev_pipe.tokenizer,
-            tokenizer_2=dev_pipe.tokenizer_2,
+            vae=pro_ultra_pipe.vae,
+            text_encoder=pro_ultra_pipe.text_encoder,
+            text_encoder_2=pro_ultra_pipe.text_encoder_2,
+            tokenizer=pro_ultra_pipe.tokenizer,
+            tokenizer_2=pro_ultra_pipe.tokenizer_2,
             torch_dtype=torch.bfloat16,
         ).to("cuda")
 
         self.pipes = {
             "dev": dev_pipe,
+            "pro_ultra": pro_ultra_pipe,
             "schnell": schnell_pipe,
         }
 
         # Load img2img pipelines
-        print("Loading Flux dev img2img pipeline")
+        print("Loading Flux Pro Ultra img2img pipeline")
+        pro_ultra_img2img_pipe = FluxImg2ImgPipeline(
+            transformer=pro_ultra_pipe.transformer,
+            scheduler=pro_ultra_pipe.scheduler,
+            vae=pro_ultra_pipe.vae,
+            text_encoder=pro_ultra_pipe.text_encoder,
+            text_encoder_2=pro_ultra_pipe.text_encoder_2,
+            tokenizer=pro_ultra_pipe.tokenizer,
+            tokenizer_2=pro_ultra_pipe.tokenizer_2,
+        ).to("cuda")
+        pro_ultra_img2img_pipe.__class__.load_lora_into_transformer = classmethod(
+            load_lora_into_transformer
+        )
+        
+        print("Loading Flux dev img2img pipeline (for backwards compatibility)")
         dev_img2img_pipe = FluxImg2ImgPipeline(
             transformer=dev_pipe.transformer,
             scheduler=dev_pipe.scheduler,
@@ -151,12 +181,27 @@ class Predictor(BasePredictor):
         ).to("cuda")
 
         self.img2img_pipes = {
+            "pro_ultra": pro_ultra_img2img_pipe,
             "dev": dev_img2img_pipe,
             "schnell": schnell_img2img_pipe,
         }
 
         # Load inpainting pipelines
-        print("Loading Flux dev inpaint pipeline")
+        print("Loading Flux Pro Ultra inpaint pipeline")
+        pro_ultra_inpaint_pipe = FluxInpaintPipeline(
+            transformer=pro_ultra_pipe.transformer,
+            scheduler=pro_ultra_pipe.scheduler,
+            vae=pro_ultra_pipe.vae,
+            text_encoder=pro_ultra_pipe.text_encoder,
+            text_encoder_2=pro_ultra_pipe.text_encoder_2,
+            tokenizer=pro_ultra_pipe.tokenizer,
+            tokenizer_2=pro_ultra_pipe.tokenizer_2,
+        ).to("cuda")
+        pro_ultra_inpaint_pipe.__class__.load_lora_into_transformer = classmethod(
+            load_lora_into_transformer
+        )
+        
+        print("Loading Flux dev inpaint pipeline (for backwards compatibility)")
         dev_inpaint_pipe = FluxInpaintPipeline(
             transformer=dev_pipe.transformer,
             scheduler=dev_pipe.scheduler,
@@ -182,11 +227,13 @@ class Predictor(BasePredictor):
         ).to("cuda")
 
         self.inpaint_pipes = {
+            "pro_ultra": pro_ultra_inpaint_pipe,
             "dev": dev_inpaint_pipe,
             "schnell": schnell_inpaint_pipe,
         }
 
         self.loaded_lora_urls = {
+            "pro_ultra": LoadedLoRAs(main=None, extra=None),
             "dev": LoadedLoRAs(main=None, extra=None),
             "schnell": LoadedLoRAs(main=None, extra=None),
         }
@@ -242,9 +289,9 @@ class Predictor(BasePredictor):
             default=28,
         ),
         model: str = Input(
-            description="Which model to run inferences with. The dev model needs around 28 steps but the schnell model only needs around 4 steps.",
-            choices=["dev", "schnell"],
-            default="dev",
+            description="Which model to run inferences with. The Pro Ultra model provides high-resolution output (up to 4MP), the dev model needs around 28 steps, and the schnell model only needs around 4 steps.",
+            choices=["pro_ultra", "dev", "schnell"],
+            default="pro_ultra",
         ),
         guidance_scale: float = Input(
             description="Guidance scale for the diffusion process. Lower values can give more realistic images. Good values to try are 2, 2.5, 3 and 3.5",
@@ -274,7 +321,11 @@ class Predictor(BasePredictor):
         output_format: str = Input(
             description="Format of the output images.",
             choices=["webp", "jpg", "png"],
-            default="webp",
+            default="jpg",
+        ),
+        raw: bool = Input(
+            description="When using Pro Ultra, generate less processed, more natural-looking images.",
+            default=False,
         ),
         output_quality: int = Input(
             description="Quality when saving the output images, from 0 to 100. 100 is best quality, 0 is lowest quality. Not relevant for .png outputs",
@@ -356,12 +407,19 @@ class Predictor(BasePredictor):
             pipe = self.pipes[model]
             flux_kwargs["width"] = width
             flux_kwargs["height"] = height
+            
+        if model == "pro_ultra" and raw:
+            flux_kwargs["raw"] = True
+            print("[!] Using raw mode for Pro Ultra model")
 
         if replicate_weights:
             flux_kwargs["joint_attention_kwargs"] = {"scale": lora_scale}
 
-        assert model in ["dev", "schnell"]
-        if model == "dev":
+        assert model in ["pro_ultra", "dev", "schnell"]
+        if model == "pro_ultra":
+            print("Using Pro Ultra model")
+            max_sequence_length = 512
+        elif model == "dev":
             print("Using dev model")
             max_sequence_length = 512
         else:  # model == "schnell":

@@ -33,7 +33,8 @@ from layer_match import match_layers_to_optimize, available_layers_to_optimize
 
 
 JOB_NAME = "flux_train_replicate"
-WEIGHTS_PATH = Path("./FLUX.1-dev")
+WEIGHTS_PATH = Path("./flux-1.1-pro-ultra")  # Using Pro Ultra as the base model
+FLUX_DEV_PATH = Path("./FLUX.1-dev")  # Keep for backwards compatibility
 INPUT_DIR = Path("input_images")
 OUTPUT_DIR = Path("output")
 JOB_DIR = OUTPUT_DIR / JOB_NAME
@@ -527,9 +528,23 @@ def download_weights():
             [
                 "pget",
                 "-xf",
-                "https://weights.replicate.delivery/default/black-forest-labs/FLUX.1-dev/files.tar",
+                "https://weights.replicate.delivery/default/black-forest-labs/flux-1.1-pro-ultra/files.tar",
                 str(WEIGHTS_PATH.parent),
             ]
         )
         t2 = time.time()
-        print(f"Downloaded base weights in {t2 - t1} seconds")
+        print(f"Downloaded FLUX 1.1 Pro Ultra base weights in {t2 - t1} seconds")
+        
+    # Also download the dev weights for backwards compatibility if needed
+    if not FLUX_DEV_PATH.exists():
+        t1 = time.time()
+        subprocess.check_output(
+            [
+                "pget",
+                "-xf",
+                "https://weights.replicate.delivery/default/black-forest-labs/FLUX.1-dev/files.tar",
+                str(FLUX_DEV_PATH.parent),
+            ]
+        )
+        t2 = time.time()
+        print(f"Downloaded FLUX.1 Dev base weights in {t2 - t1} seconds")
