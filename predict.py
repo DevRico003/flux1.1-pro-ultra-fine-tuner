@@ -29,9 +29,7 @@ from lora_loading_patch import load_lora_into_transformer
 MODEL_URL_DEV = (
     "https://weights.replicate.delivery/default/black-forest-labs/FLUX.1-dev/files.tar"
 )
-MODEL_URL_PRO_ULTRA = (
-    "https://weights.replicate.delivery/default/black-forest-labs/flux-1.1-pro-ultra/files.tar"
-)
+MODEL_URL_PRO_ULTRA = "https://weights.replicate.delivery/default/black-forest-labs/flux-1.1-pro-ultra/files.tar"
 MODEL_URL_SCHNELL = "https://weights.replicate.delivery/default/black-forest-labs/FLUX.1-schnell/slim.tar"
 SAFETY_URL = "https://weights.replicate.delivery/default/sdxl/safety-1.0.tar"
 SAFETY_CACHE_PATH = Path("safety-cache")
